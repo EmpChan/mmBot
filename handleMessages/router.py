@@ -1,32 +1,11 @@
 import requests
-from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Response
-import re
-from .models import InputModel, ParsedText
-from db.db_crud import get_channels_by_purpose,get_channel_by_url
+from .models import InputModel
+from db.db_crud import *
 import asyncio
+from util import getCurTime, refineText, parseText
 
 message_router = APIRouter(prefix="/api/messages")
-
-def getCurTime():
-    kst = timezone(timedelta(hours=9))
-    return datetime.now(kst).isoformat()
-
-def refineText(text : str) -> str:
-    return re.sub(r":[^:\s]+:", " ", text)
-
-def parseText(text: str) -> ParsedText:
-    text=text.strip("@all @here\n")
-    title = text.split('\n')[0].strip("# :")
-    body = refineText(text)
-
-    res = ParsedText(
-        title=title,
-        body=body
-    )
-    print(res.title, res.body)
-
-    return res
 
 async def sendMessage(payload:InputModel, url:str):
     headers = {
@@ -88,18 +67,21 @@ async def postAnnouncement(title, body):
 
     
     def check_type(text : str) -> str:
-        head = text.split()[0] # there is type [#, ##, #... , -]
-        res_type = ""
-        if head[0] =='#' and len(head) <= 5:
-            res_type = f"heading_{len(head)}"
-            text = ''.join(text.split()[1::])
-        elif head == '-':
-            res_type = "bulleted_list_item"
-            text = ''.join(text.split()[1::])
-        else:
-            res_type = "paragraph"
+        try:
+            head = text.split()[0] # there is type [#, ##, #... , -]
+            res_type = ""
+            if head[0] =='#' and len(head) <= 5:
+                res_type = f"heading_{len(head)}"
+                text = ' '.join(text.split()[1::])
+            elif head == '-':
+                res_type = "bulleted_list_item"
+                text = ' '.join(text.split()[1::])
+            else:
+                res_type = "paragraph"
 
-        return res_type, text
+            return res_type, text
+        except:
+            return res_type, text
 
     children = []
 
@@ -128,9 +110,10 @@ async def postAnnouncement(title, body):
 
 @message_router.post("/in")
 def handleMessage(payload:InputModel):
-    # --- make it log ----
-    print(payload)
-    # --------------------
+    create_message_log(
+        get_channel_by_token(payload.token).channel_id,
+        refineText(payload.text)
+    )
     asyncio.run(sendMessage(payload,"https://meeting.ssafy.com/hooks/ctpgdnzg93dtxdz4p8jtir13ir"))
     
     parsed_data = parseText(refineText(payload.text))

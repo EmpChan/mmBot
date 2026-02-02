@@ -1,11 +1,7 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
-from fastapi.staticfiles import StaticFiles
 
-from db.db_crud import saveLog
 from handleMessages.router import message_router
-
 
 app = FastAPI(title="mmBot Admin API")
 
